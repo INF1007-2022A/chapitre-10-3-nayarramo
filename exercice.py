@@ -5,7 +5,7 @@ import os
 import wave
 import struct
 import math
-
+import matplotlib.pyplot as plt
 import numpy as np
 import scipy
 
@@ -64,25 +64,91 @@ def convert_to_samples(bytes):
 
 def main():
 	try:
+		# On met les fichiers de sortie dans leur propre dossier.
 		os.mkdir("output")
 	except:
 		pass
 
-	with wave.open("output/perfect_fifth.wav", "wb") as writer:
+	# On affiche une onde d'exemple 
+	xs = generate_sample_time_points(3)
+	ys = square(1.0, 0.5, 3) + sawtooth(10.0, 0.1, 3)
+	plt.figure(figsize=(12, 6))
+	plt.plot(xs, ys)
+	plt.grid(color="wheat")
+	plt.ylim([-1.1, 1.1])
+	plt.xlim([0, 2])
+	plt.xlabel("t (s)")
+	plt.ylabel("y")
+	plt.show()
+
+	# Exemple d'un la et mi (quinte juste), un dans le channel gauche et l'autre dans le channel droit
+	with wave.open("output/perfect_fifth_panned.wav", "wb") as writer:
+		# On fait la config du writer (2 channels, échantillons de deux octets, fréquence d'échantillonnage).
 		writer.setnchannels(2)
 		writer.setsampwidth(2)
 		writer.setframerate(SAMPLING_FREQ)
 
 		# On génére un la3 (220 Hz) et un mi4 (intonation juste, donc ratio de 3/2)
-		samples1 = sine(220, 0.4, 30.0)
-		samples2 = sine(220 * (3/2), 0.3, 30.0)
-		samples3 = normalize(samples1 + samples2, 0.89)
+		#samples1 = sine(220, 0.9, 30.0)
+		samples1 = sawtooth(220, 0.9, 30.0)
+		#samples2 = sine(220 * (3/2), 0.7, 30.0)
+		samples2 = sawtooth(220 * (3/2), 0.7, 30.0)
 
 		# On met les samples dans des channels séparés (la à gauche, mi à droite)
-		merged = merge_channels([samples3, samples3])
+		merged = merge_channels([samples1, samples2])
 		data = convert_to_bytes(merged)
 
 		writer.writeframes(data)
+
+	with wave.open("output/major_chord.wav", "wb") as writer:
+		writer.setnchannels(1)
+		writer.setsampwidth(2)
+		writer.setframerate(SAMPLING_FREQ)
+
+		# Un accord majeur (racine, tierce, quinte, octave) en intonation juste
+		root_freq = 220
+		root = sine(root_freq, 1, 10.0)
+		third = sine(root_freq * 5/4, 1, 10.0)
+		fifth = sine(root_freq * 3/2, 1, 10.0)
+		octave = sine(root_freq * 2, 1, 10.0)
+		# Étant donné qu'on additionne les signaux, on normalize pour que ça soit à un bon niveau.
+		chord = normalize(root + third + fifth + octave, 0.89)
+
+		writer.writeframes(convert_to_bytes(chord))
+
+	with wave.open("output/overtones.wav", "wb") as writer:
+		writer.setnchannels(1)
+		writer.setsampwidth(2)
+		writer.setframerate(SAMPLING_FREQ)
+
+		# On génère un signal avec ses 3 premières harmoniques (2x, 3x et 4x la fréquence de base)
+		samples = sine_with_overtones(220, 1, [(i, 0.15**(i-1)) for i in range(2, 5)], 10)
+		# Encore, on additionne des signaux, donc on normalise.
+		samples = normalize(samples, 0.89)
+
+		writer.writeframes(convert_to_bytes(samples))
+
+# def main():
+# 	try:
+# 		os.mkdir("output")
+# 	except:
+# 		pass
+
+# 	with wave.open("output/perfect_fifth.wav", "wb") as writer:
+# 		writer.setnchannels(2)
+# 		writer.setsampwidth(2)
+# 		writer.setframerate(SAMPLING_FREQ)
+
+# 		# On génére un la3 (220 Hz) et un mi4 (intonation juste, donc ratio de 3/2)
+# 		samples1 = sine(220, 0.4, 30.0)
+# 		samples2 = sine(220 * (3/2), 0.3, 30.0)
+# 		samples3 = normalize(samples1 + samples2, 0.89)
+
+# 		# On met les samples dans des channels séparés (la à gauche, mi à droite)
+# 		merged = merge_channels([samples3, samples3])
+# 		data = convert_to_bytes(merged)
+
+# 		writer.writeframes(data)
 
 
 if __name__ == "__main__":
